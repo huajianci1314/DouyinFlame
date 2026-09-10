@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>抖音续火控制台</title>
+<style>
+  :root {
+    --bg: #14161c;
+    --panel: #1c1f27;
+    --panel-2: #232733;
+    --border: #2e3342;
+    --text: #e6e8ee;
+    --muted: #8b90a0;
+    --accent: #ff6b35;
+    --accent-soft: rgba(255, 107, 53, .14);
+    --ok: #4cc38a;
+    --err: #e5544b;
+    --warn: #e8b341;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    font-size: 14px; min-height: 100vh;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 24px 20px 60px; }
+
+  header { display: flex; align-items: center; gap: 14px; margin-bottom: 24px; flex-wrap: wrap; }
+  .logo { font-size: 20px; font-weight: 700; }
+  .logo .flame { color: var(--accent); }
+  .badge { padding: 3px 10px; border-radius: 20px; font-size: 12px; border: 1px solid var(--border); color: var(--muted); }
+  .badge.on { color: var(--ok); border-color: rgba(76,195,138,.4); background: rgba(76,195,138,.08); }
+  .badge.off { color: var(--err); border-color: rgba(229,84,75,.4); background: rgba(229,84,75,.08); }
+  .spacer { flex: 1; }
+
+  button {
+    border: 1px solid var(--border); background: var(--panel-2); color: var(--text);
+    padding: 7px 14px; border-radius: 8px; cursor: pointer; font-size: 13px;
+    transition: all .15s;
+  }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  button.primary:hover { filter: brightness(1.1); color: #fff; }
+  button.danger:hover { border-color: var(--err); color: var(--err); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button.small { padding: 4px 10px; font-size: 12px; border-radius: 6px; }
+
+  .grid { display: grid; grid-template-columns: 380px 1fr; gap: 20px; align-items: start; }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 18px; margin-bottom: 20px; }
+  .card h3 { font-size: 14px; margin-bottom: 14px; color: var(--text); display: flex; align-items: center; gap: 8px; }
+  .card h3::before { content: ""; width: 3px; height: 14px; background: var(--accent); border-radius: 2px; }
+
+  label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 5px; }
+  input[type="text"], input[type="time"], textarea {
+    width: 100%; background: var(--panel-2); border: 1px solid var(--border); color: var(--text);
+    border-radius: 8px; padding: 8px 10px; font-size: 13px; outline: none; font-family: inherit;
+  }
+  input:focus, textarea:focus { border-color: var(--accent); }
+  textarea { resize: vertical; min-height: 56px; }
+  .row2 { display: grid; grid-template-columns: 1fr 110px; gap: 10px; }
+  .form-actions { margin-top: 14px; display: flex; gap: 10px; }
+  .form-actions button { flex: 1; }
+
+  .contact { background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin-bottom: 12px; }
+  .contact .top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .contact .name { font-weight: 600; font-size: 15px; }
+  .contact .remark { color: var(--muted); font-size: 12px; }
+  .streak {
+    margin-left: auto; display: flex; align-items: center; gap: 5px;
+    background: var(--accent-soft); color: var(--accent);
+    padding: 3px 10px; border-radius: 16px; font-size: 12px; font-weight: 600;
+  }
+  .streak.warn { background: rgba(232,179,65,.12); color: var(--warn); }
+  .streak.off { background: transparent; border: 1px solid var(--border); color: var(--muted); font-weight: 400; }
+  .contact .meta { color: var(--muted); font-size: 12px; margin: 8px 0; line-height: 1.7; }
+  .contact .meta b { color: var(--text); font-weight: 500; }
+  .contact .ops { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .empty { color: var(--muted); text-align: center; padding: 28px 0; font-size: 13px; }
+
+  .logbox {
+    background: #101218; border: 1px solid var(--border); border-radius: 10px;
+    height: 320px; overflow-y: auto; padding: 12px 14px; font-family: Consolas, "JetBrains Mono", monospace; font-size: 12px;
+  }
+  .logline { padding: 2px 0; line-height: 1.6; word-break: break-all; }
+  .logline .t { color: var(--muted); margin-right: 8px; }
+  .logline.INFO .lvl { color: var(--ok); }
+  .logline.WARN .lvl { color: var(--warn); }
+  .logline.ERROR .lvl { color: var(--err); }
+  .logline .lvl { margin-right: 8px; font-weight: 600; }
+
+  .tips { color: var(--muted); font-size: 12px; line-height: 1.9; }
+  .tips b { color: var(--text); }
+  .toast {
+    position: fixed; top: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--panel-2); border: 1px solid var(--accent); color: var(--text);
+    padding: 10px 22px; border-radius: 10px; font-size: 13px; z-index: 99;
+    opacity: 0; transition: opacity .25s; pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+
+  .modal-mask {
+    position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 50;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .modal {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+    width: min(520px, 92vw); max-height: 82vh; padding: 18px; display: flex; flex-direction: column;
+  }
+  .modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; font-weight: 600; }
+  .muted { color: var(--muted); font-weight: 400; font-size: 12px; }
+  .import-cfg { display: grid; grid-template-columns: 1fr 110px; gap: 10px; margin-bottom: 10px; }
+  .scrape-list { overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; min-height: 120px; max-height: 42vh; }
+  .scrape-item {
+    display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+    border-bottom: 1px solid var(--border); font-size: 13px; cursor: pointer;
+  }
+  .scrape-item:hover { background: var(--panel-2); }
+  .scrape-item:last-child { border-bottom: none; }
+  .flame-tag {
+    margin-left: auto; color: var(--accent); font-size: 12px; font-weight: 600;
+    background: var(--accent-soft); padding: 2px 8px; border-radius: 12px;
+  }
+  .flame-tag.warn { color: var(--warn); background: rgba(232,179,65,.12); }
+  .flame-tag.none { color: var(--muted); background: transparent; border: 1px solid var(--border); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo"><span class="flame">&#128293;</span> 抖音续火控制台</div>
+    <span id="loginBadge" class="badge">登录态检测中…</span>
+    <span id="jobBadge" class="badge">定时任务 0</span>
+    <div class="spacer"></div>
+    <button id="btnLogin" onclick="doLogin()">扫码登录</button>
+    <button id="btnLogout" class="danger" onclick="clearLogin()">清除登录</button>
+    <button id="btnScrape" onclick="startScrape()">抓取火花</button>
+    <button class="primary" onclick="sendAll()">全部续火</button>
+  </header>
+
+  <div class="grid">
+    <div>
+      <div class="card">
+        <h3 id="formTitle">添加联系人</h3>
+        <input type="hidden" id="fId">
+        <label>抖音昵称（须与消息列表显示完全一致）</label>
+        <input type="text" id="fNickname" placeholder="例如：小桶">
+        <label>续火内容</label>
+        <textarea id="fMessage" placeholder="例如：中午了，记得续火花 🔥"></textarea>
+        <div class="row2">
+          <div>
+            <label>每日发送时间</label>
+            <input type="time" id="fTime" value="12:00">
+          </div>
+          <div>
+            <label>启用</label>
+            <select id="fEnabled" style="width:100%;background:var(--panel-2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 10px;font-size:13px;">
+              <option value="1">启用</option>
+              <option value="0">停用</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="primary" onclick="saveContact()">保存</button>
+          <button onclick="resetForm()" id="btnCancel" style="display:none">取消编辑</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>使用须知</h3>
+        <div class="tips">
+          <b>首次使用</b>：点「扫码登录」，在弹出的浏览器里用抖音 App 扫码，成功后窗口自动关闭。<br>
+          <b>昵称匹配</b>：程序按消息列表里显示的名字找人，备注名不同会导致找不到会话。<br>
+          <b>前提条件</b>：双方近期有过聊天记录，否则消息页搜不到对方。<br>
+          <b>风控提醒</b>：频率过高可能触发抖音限制，建议每天每联系人只发 1 条。
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card">
+        <h3>联系人</h3>
+        <div id="contactList"><div class="empty">暂无联系人，先在左侧添加</div></div>
+      </div>
+      <div class="card">
+        <h3>运行日志</h3>
+        <div class="logbox" id="logbox"></div>
+        <div class="form-actions"><button class="small" onclick="clearLogs()">清空日志</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<div class="modal-mask" id="scrapeModal" style="display:none">
+  <div class="modal">
+    <div class="modal-head">
+      <span>抓取结果 <span id="scrapeSummary" class="muted"></span></span>
+      <button class="small" onclick="closeScrapeModal()">关闭</button>
+    </div>
+    <div class="import-cfg">
+      <div>
+        <label>默认续火内容</label>
+        <input type="text" id="importMessage" value="中午了，记得续火花">
+      </div>
+      <div style="width:110px">
+        <label>每日发送时间</label>
+        <input type="time" id="importTime" value="12:00">
+      </div>
+    </div>
+    <div class="scrape-list" id="scrapeList"></div>
+    <div class="form-actions">
+      <button class="primary" onclick="importSelected()">一键导入勾选项</button>
+      <button onclick="checkAllScrape()">全选有火花的</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let maxLogId = 0;
+let contacts = [];
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+async function api(url, opts) {
+  const r = await fetch(url, opts);
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
+  return r.json();
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function refreshState() {
+  try {
+    const s = await api('/api/state');
+    const badge = document.getElementById('loginBadge');
+    if (s.logged_in) { badge.textContent = '已登录'; badge.className = 'badge on'; }
+    else { badge.textContent = '未登录'; badge.className = 'badge off'; }
+    document.getElementById('jobBadge').textContent = `定时任务 ${s.jobs}`;
+    if (JSON.stringify(contacts) !== JSON.stringify(s.contacts)) {
+      contacts = s.contacts;
+      renderContacts();
+    }
+  } catch (e) { /* 服务重启中 */ }
+}
+
+function flameBadge(c) {
+  if (c.flame_state === 'reburn') {
+    return `<span class="streak warn">&#8635; 重燃中 ${esc(c.flame_reburn || '')}</span>`;
+  }
+  if (c.flame_state === 'active' && c.flame_days > 0) {
+    return `<span class="streak">&#128293; 抖音 ${c.flame_days} 天</span>`;
+  }
+  return `<span class="streak off">火花未点燃</span>`;
+}
+
+function renderContacts() {
+  const box = document.getElementById('contactList');
+  if (!contacts.length) { box.innerHTML = '<div class="empty">暂无联系人，先在左侧添加</div>'; return; }
+  box.innerHTML = contacts.map(c => `
+    <div class="contact">
+      <div class="top">
+        <span class="name">${esc(c.nickname)}</span>
+        ${c.enabled ? '' : '<span class="remark">已停用</span>'}
+        ${flameBadge(c)}
+      </div>
+      <div class="meta">
+        内容：<b>${esc(c.message)}</b><br>
+        时间：<b>每日 ${esc(c.send_time)}</b> &nbsp;·&nbsp; 本地连击 <b>${c.streak} 天</b> &nbsp;·&nbsp; 最近成功：<b>${c.last_sent || '从未'}</b>
+      </div>
+      <div class="ops">
+        <button class="small primary" onclick="sendOne(${c.id})">立即续火</button>
+        <button class="small" onclick="editContact(${c.id})">编辑</button>
+        <button class="small danger" onclick="delContact(${c.id})">删除</button>
+      </div>
+    </div>`).join('');
+}
+
+async function pollLogs() {
+  try {
+    const logs = await api(`/api/logs?after_id=${maxLogId}&limit=100`);
+    if (!logs.length) return;
+    maxLogId = Math.max(...logs.map(l => l.id));
+    const box = document.getElementById('logbox');
+    const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
+    logs.reverse().forEach(l => {
+      const t = new Date(l.ts * 1000).toLocaleTimeString('zh-CN', {hour12: false});
+      const div = document.createElement('div');
+      div.className = `logline ${l.level}`;
+      div.innerHTML = `<span class="t">${t}</span><span class="lvl">${l.level}</span>${esc(l.contact ? `[${l.contact}] ` : '')}${esc(l.text)}`;
+      box.appendChild(div);
+    });
+    while (box.children.length > 400) box.removeChild(box.firstChild);
+    if (atBottom) box.scrollTop = box.scrollHeight;
+  } catch (e) { /* ignore */ }
+}
+
+async function saveContact() {
+  const id = document.getElementById('fId').value;
+  const body = {
+    nickname: document.getElementById('fNickname').value.trim(),
+    message: document.getElementById('fMessage').value.trim(),
+    send_time: document.getElementById('fTime').value || '12:00',
+    enabled: document.getElementById('fEnabled').value === '1',
+  };
+  if (!body.nickname || !body.message) { toast('昵称和续火内容不能为空'); return; }
+  try {
+    if (id) await api(`/api/contacts/${id}`, {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+    else await api('/api/contacts', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+    toast(id ? '已更新' : '已添加');
+    resetForm(); refreshState();
+  } catch (e) { toast('失败：' + e.message); }
+}
+
+function editContact(id) {
+  const c = contacts.find(x => x.id === id);
+  if (!c) return;
+  document.getElementById('fId').value = c.id;
+  document.getElementById('fNickname').value = c.nickname;
+  document.getElementById('fMessage').value = c.message;
+  document.getElementById('fTime').value = c.send_time;
+  document.getElementById('fEnabled').value = String(c.enabled);
+  document.getElementById('formTitle').textContent = `编辑「${c.nickname}」`;
+  document.getElementById('btnCancel').style.display = '';
+  window.scrollTo({top: 0, behavior: 'smooth'});
+}
+
+function resetForm() {
+  document.getElementById('fId').value = '';
+  document.getElementById('fNickname').value = '';
+  document.getElementById('fMessage').value = '';
+  document.getElementById('fTime').value = '12:00';
+  document.getElementById('fEnabled').value = '1';
+  document.getElementById('formTitle').textContent = '添加联系人';
+  document.getElementById('btnCancel').style.display = 'none';
+}
+
+async function delContact(id) {
+  const c = contacts.find(x => x.id === id);
+  if (!confirm(`确定删除「${c ? c.nickname : id}」的续火任务？`)) return;
+  await api(`/api/contacts/${id}`, {method: 'DELETE'});
+  toast('已删除'); refreshState();
+}
+
+async function sendOne(id) {
+  try {
+    const r = await api(`/api/contacts/${id}/send`, {method: 'POST'});
+    toast(r.message);
+  } catch (e) { toast('失败：' + e.message); }
+}
+
+async function sendAll() {
+  const r = await api('/api/send_all', {method: 'POST'});
+  toast(r.message);
+}
+
+async function doLogin() {
+  try {
+    const r = await api('/api/login', {method: 'POST'});
+    toast(r.message);
+  } catch (e) { toast('失败：' + e.message); }
+}
+
+async function clearLogin() {
+  if (!confirm('确定清除登录态？清除后需要重新扫码。')) return;
+  await api('/api/login', {method: 'DELETE'});
+  toast('已清除'); refreshState();
+}
+
+async function clearLogs() {
+  await api('/api/logs', {method: 'DELETE'});
+  document.getElementById('logbox').innerHTML = '';
+  maxLogId = 0;
+}
+
+/* ---------- 火花抓取与导入 ---------- */
+let scrapeItems = [];
+
+async function startScrape() {
+  try {
+    const r = await api('/api/scrape_flames', {method: 'POST'});
+    toast(r.message);
+    pollScrape();
+  } catch (e) { toast('失败：' + e.message); }
+}
+
+async function pollScrape() {
+  let s;
+  try { s = await api('/api/scrape_flames'); } catch (e) { return; }
+  if (s.status === 'running') { setTimeout(pollScrape, 2500); return; }
+  if (s.status === 'done') {
+    scrapeItems = s.items;
+    openScrapeModal();
+  } else if (s.status === 'error') {
+    toast('抓取失败：' + (s.error || '未知错误'));
+  }
+}
+
+function openScrapeModal() {
+  const withFlame = scrapeItems.filter(x => x.state === 'active' || x.state === 'reburn').length;
+  document.getElementById('scrapeSummary').textContent =
+    `共 ${scrapeItems.length} 个会话，${withFlame} 个火花相关`;
+  const box = document.getElementById('scrapeList');
+  box.innerHTML = scrapeItems.map((it, i) => {
+    let tag;
+    if (it.state === 'reburn') tag = `<span class="flame-tag warn">&#8635; 重燃中 ${esc(it.reburn || '')}</span>`;
+    else if (it.flame_days > 0) tag = `<span class="flame-tag">&#128293; ${it.flame_days} 天</span>`;
+    else tag = `<span class="flame-tag none">无火花</span>`;
+    return `
+    <label class="scrape-item">
+      <input type="checkbox" data-idx="${i}" ${it.state === 'active' || it.state === 'reburn' ? 'checked' : ''}>
+      <span>${esc(it.nickname)}</span>
+      ${tag}
+    </label>`;
+  }).join('') || '<div class="empty">没有抓到会话</div>';
+  document.getElementById('scrapeModal').style.display = 'flex';
+}
+
+function closeScrapeModal() {
+  document.getElementById('scrapeModal').style.display = 'none';
+}
+
+function checkAllScrape() {
+  document.querySelectorAll('#scrapeList input[type="checkbox"]').forEach(cb => {
+    const it = scrapeItems[+cb.dataset.idx];
+    cb.checked = it.state === 'active' || it.state === 'reburn';
+  });
+}
+
+async function importSelected() {
+  const message = document.getElementById('importMessage').value.trim();
+  const send_time = document.getElementById('importTime').value || '12:00';
+  if (!message) { toast('续火内容不能为空'); return; }
+  const items = [];
+  document.querySelectorAll('#scrapeList input[type="checkbox"]:checked').forEach(cb => {
+    const it = scrapeItems[+cb.dataset.idx];
+    items.push({nickname: it.nickname, flame_days: it.flame_days,
+                state: it.state || '', reburn: it.reburn || ''});
+  });
+  if (!items.length) { toast('没有勾选任何联系人'); return; }
+  try {
+    const r = await api('/api/import_flames', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({items, message, send_time}),
+    });
+    toast(`已导入 ${r.added} 个联系人${r.skipped ? '，跳过已存在 ' + r.skipped : ''}`);
+    closeScrapeModal(); refreshState();
+  } catch (e) { toast('导入失败：' + e.message); }
+}
+
+refreshState();
+pollLogs();
+setInterval(refreshState, 4000);
+setInterval(pollLogs, 2000);
+</script>
+</body>
+</html>
